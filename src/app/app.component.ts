@@ -1,5 +1,19 @@
 import { Component } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import * as msal from '@azure/msal-browser';
+import axios from 'axios';
+
+const msalConfig = {
+  auth: {
+    clientId: 'YOUR_CLIENT_ID',
+    authority: 'https://login.microsoftonline.com/c0e8b31f-ec80-4ea3-9c69-88ba49dd7f9c',
+    redirectUri: 'https://gray-plant-099627600.5.azurestaticapps.net/.auth/login/aad/callback'
+  }
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+
 
 @Component({
   selector: 'app-root',
@@ -24,12 +38,46 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
   `]
 })
 export class AppComponent {
-  value = 'World';
+  value: string = '';
   errorMessage: string = '';
   username: string = '';
   password: string = '';
 
   constructor(private http: HttpClient) {}
+
+  ngOnInit() {
+    this.getUserDetails();
+  }
+
+  async getUserDetails() {
+    try {
+      const account = msalInstance.getAllAccounts()[0];
+      if (account) {
+        this.value = account.username;
+        const accessToken = await msalInstance.acquireTokenSilent({
+          scopes: ['User.Read']
+        });
+        this.getUserRoles(accessToken.accessToken);
+      } else {
+        msalInstance.loginRedirect();
+      }
+    } catch (error) {
+      console.error('Error during authentication:', error);
+    }
+  }
+
+  async getUserRoles(accessToken: string) {
+    try {
+      const response = await axios.get('https://graph.microsoft.com/v1.0/me/memberOf', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      console.log('User roles:', response.data.value.map((role: any) => role.displayName));
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+    }
+  }
 
   logIn() {
     const url = 'https://oneclickvouchertest.azurewebsites.net/functions-ext/api/v1/login';
