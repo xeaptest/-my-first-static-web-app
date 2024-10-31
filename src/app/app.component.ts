@@ -5,7 +5,7 @@ import axios from 'axios';
 
 const msalConfig = {
   auth: {
-    clientId: 'YOUR_CLIENT_ID',
+    clientId: 'fa0b4cf5-e807-43d4-93dd-4b8c380df8bf',
     authority: 'https://login.microsoftonline.com/c0e8b31f-ec80-4ea3-9c69-88ba49dd7f9c',
     redirectUri: 'https://gray-plant-099627600.5.azurestaticapps.net/.auth/login/aad/callback'
   }
@@ -45,8 +45,13 @@ export class AppComponent {
 
   constructor(private http: HttpClient) {}
 
-  ngOnInit() {
-    this.getUserDetails();
+  async ngOnInit() {
+    try {
+      await msalInstance.initialize();  // Ensure the instance is initialized
+      this.getUserDetails();
+    } catch (error) {
+      console.error('Initialization error:', error);
+    }
   }
 
   async getUserDetails() {
