@@ -7,27 +7,17 @@ const msalConfig = {
   auth: {
     clientId: 'fa0b4cf5-e807-43d4-93dd-4b8c380df8bf',
     authority: 'https://login.microsoftonline.com/c0e8b31f-ec80-4ea3-9c69-88ba49dd7f9c',
-    redirectUri: 'https://gray-plant-099627600.5.azurestaticapps.net'
+    redirectUri: 'http://localhost:4200'
   }
 };
 
 const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-
-
 @Component({
   selector: 'app-root',
   template: `
     <div>Hello {{ value }}</div>
-    <div>
-      <label for="username">Username:</label>
-      <input id="username" [(ngModel)]="username" />
-    </div>
-    <div>
-      <label for="password">Password:</label>
-      <input id="password" [(ngModel)]="password" type="password" />
-    </div>
-    <button [disabled]="!username || !password" (click)="logIn()">Login</button>
+    <div> NS Token: {{ nsToken }} </div>
     <div *ngIf="errorMessage" class="error">{{ errorMessage }}</div>
   `,
   styles: [`
@@ -39,11 +29,10 @@ const msalInstance = new msal.PublicClientApplication(msalConfig);
 })
 export class AppComponent {
   value: string = '';
+  nsToken: string = '';
   errorMessage: string = '';
-  username: string = '';
-  password: string = '';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   async ngOnInit() {
     try {
@@ -51,8 +40,15 @@ export class AppComponent {
       const result = await msalInstance.handleRedirectPromise();
       if (result) {
         this.value = result.account.username;
-        const accessToken = result.accessToken;
-        this.getUserRoles(accessToken);
+        const token = result.accessToken;
+        const userId = result.account.idTokenClaims.oid;
+        const firstGroupName = await this.getUserGroups(token, userId);  // Wait for the promise to resolve
+        
+        if (firstGroupName == 'MasterGroup')
+        {
+
+        };
+
       } else {
         msalInstance.loginRedirect();
       }
@@ -60,49 +56,44 @@ export class AppComponent {
       console.error('Error during initialization:', error);
     }
   }
-
-  async getUserDetails() {
-    try {
-      const account = msalInstance.getAllAccounts()[0];
-      if (account) {
-        this.value = account.username;
-        const accessToken = await msalInstance.acquireTokenSilent({
-          scopes: ['User.Read']
-        });
-        this.getUserRoles(accessToken.accessToken);
-      } else {
-        msalInstance.loginRedirect();
+  
+  async getUserGroups(token: string, userId: string): Promise<string> {
+    const response = await fetch(`https://graph.microsoft.com/v1.0/users/${userId}/memberOf`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
-    } catch (error) {
-      console.error('Error during authentication:', error);
-    }
-  }
-
-  async getUserRoles(accessToken: string) {
-    try {
-      const response = await axios.get('https://graph.microsoft.com/v1.0/me/memberOf', {
+    });
+    const data = await response.json();
+  
+    // Check if data.value is an array and has at least one group
+    if (Array.isArray(data.value) && data.value.length > 0) {
+      const firstGroup = data.value[0];
+      const groupResponse = await fetch(`https://graph.microsoft.com/v1.0/groups/${firstGroup.id}`, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
-      console.log('User roles:', response.data.value.map((role: any) => role.displayName));
-    } catch (error) {
-      console.error('Error fetching user roles:', error);
+      const groupData = await groupResponse.json();
+      return groupData.displayName;  // Return the first group's display name as a string
+    } else {
+      throw new Error('No groups found or unexpected response structure');
     }
   }
-
+  
   logIn() {
     const url = 'https://oneclickvouchertest.azurewebsites.net/functions-ext/api/v1/login';
-    const body = { username: this.username, password: this.password };
+    const body = { username: 'servicesMaster', password: 'DSTe@m!22' };
     const headers = new HttpHeaders({
       'Ocp-Apim-Subscription-Key': 'Y6BvR0SyIvsCPF7R33RR3ffcPSVEf3nRv8XTQWAo2pHyAzFuz4POeQ==',
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     });
 
-    this.http.post(url, body, {headers}).subscribe(
+    this.http.post(url, body, { headers }).subscribe(
       (response: any) => {
-        this.value = response.data.token;
+        this.nsToken = response.data.token;
         this.errorMessage = '';
       },
       error => {
