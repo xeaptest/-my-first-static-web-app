@@ -7,7 +7,7 @@ const msalConfig = {
   auth: {
     clientId: 'fa0b4cf5-e807-43d4-93dd-4b8c380df8bf',
     authority: 'https://login.microsoftonline.com/c0e8b31f-ec80-4ea3-9c69-88ba49dd7f9c',
-    redirectUri: 'https://gray-plant-099627600.5.azurestaticapps.net/.auth/login/aad/callback'
+    redirectUri: 'https://gray-plant-099627600.5.azurestaticapps.net'
   }
 };
 
