@@ -43,10 +43,9 @@ export class AppComponent {
         const token = result.accessToken;
         const userId = result.account.idTokenClaims.oid;
         const firstGroupName = await this.getUserGroups(token, userId);  // Wait for the promise to resolve
-        
-        if (firstGroupName == 'MasterGroup')
-        {
 
+        if (firstGroupName == 'MasterGroup') {
+          await this.loginToNS();
         };
 
       } else {
@@ -56,7 +55,7 @@ export class AppComponent {
       console.error('Error during initialization:', error);
     }
   }
-  
+
   async getUserGroups(token: string, userId: string): Promise<string> {
     const response = await fetch(`https://graph.microsoft.com/v1.0/users/${userId}/memberOf`, {
       headers: {
@@ -65,24 +64,24 @@ export class AppComponent {
       }
     });
     const data = await response.json();
-  
-    // Check if data.value is an array and has at least one group
-    if (Array.isArray(data.value) && data.value.length > 0) {
-      const firstGroup = data.value[0];
-      const groupResponse = await fetch(`https://graph.microsoft.com/v1.0/groups/${firstGroup.id}`, {
+    // Filter the groups to find the first one with "@odata.type": "#microsoft.graph.group"
+    const group = data.value.find((item: any) => item["@odata.type"] === "#microsoft.graph.group");
+
+    if (group) {
+      const groupResponse = await fetch(`https://graph.microsoft.com/v1.0/groups/${group.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
       const groupData = await groupResponse.json();
-      return groupData.displayName;  // Return the first group's display name as a string
+      return groupData.displayName; // Return the first group's display name as a string
     } else {
       throw new Error('No groups found or unexpected response structure');
     }
   }
-  
-  logIn() {
+
+  async loginToNS() {
     const url = 'https://oneclickvouchertest.azurewebsites.net/functions-ext/api/v1/login';
     const body = { username: 'servicesMaster', password: 'DSTe@m!22' };
     const headers = new HttpHeaders({
